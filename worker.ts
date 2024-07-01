@@ -1,9 +1,13 @@
 /// <reference lib="webworker" />
 
-const stream = new TransformStream( {
-	transform( chunk, controller ) {
-		controller.enqueue( chunk );
-	},
-} );
+import { CityParserTransformer } from "./city-parser-transformer";
 
-postMessage( 'stream', [ stream ] );
+const textDecoder = new TextDecoderStream();
+const parserStream = new TransformStream( new CityParserTransformer() );
+
+textDecoder.readable.pipeTo( parserStream.writable );
+
+const read = parserStream.readable;
+const write = textDecoder.writable;
+
+postMessage( { read, write }, [ read, write ] );

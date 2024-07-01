@@ -1,17 +1,28 @@
-import { ChunkAlignTransformer } from "./chunk-align-transformer.ts";
-import { CityParserTransformer } from "./city-parser-transformer.ts";
-import { CityReduceTransformer } from "./city-reduce-transformer.ts";
-import { render } from "./render.ts";
+import { ByteAlignTransformer } from "./byte-align-transformer.js";
+import { CityReduceTransformer } from "./city-reduce-transformer.js";
+import { ParallelWorkerTransformer } from "./parallel-worker-transformer.js";
+import { render } from "./render.js";
 
-const file = await Deno.open( './measurements-1000000000.txt' );
+const input = document.querySelector<HTMLInputElement>( 'input[type="file"]' )!;
 
-await file.readable
-	.pipeThrough( new TextDecoderStream() )
-	.pipeThrough( new TransformStream( new ChunkAlignTransformer( '\n' ) ) )
-	.pipeThrough( new TransformStream( new CityParserTransformer() ) )
-	.pipeThrough( new TransformStream( new CityReduceTransformer() ) )
-	.pipeTo( new WritableStream( {
-		write( chunk ) {
-			console.log( render( chunk ) );
-		}
-	} ) )
+input.addEventListener( 'change', () => {
+	const file = input.files?.[ 0 ];
+	if ( !file ) return;
+	parse( file );
+} );
+
+async function parse( file: File ) {
+	console.time( 'parse' );
+
+	await file.stream()
+		.pipeThrough( new TransformStream( new ByteAlignTransformer( 0x0A ) ) )
+		.pipeThrough( new TransformStream( new ParallelWorkerTransformer() ) )
+		.pipeThrough( new TransformStream( new CityReduceTransformer() ) )
+		.pipeTo( new WritableStream( {
+			write( chunk ) {
+				console.log( render( chunk ) );
+			}
+		} ) )
+
+	console.timeEnd( 'parse' );
+}
